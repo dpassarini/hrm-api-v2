@@ -14,5 +14,6 @@
 *.log
 
 # Sensitive keys and certificates
-/config/keys/private.pem
+/config/keys/*.pem
 /config/keys/*.key
+!/config/keys/public.pem.example

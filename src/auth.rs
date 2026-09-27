@@ -6,6 +6,7 @@ use axum::{
 use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::path::Path;
 use std::sync::OnceLock;
 use uuid::Uuid;
 
@@ -19,10 +20,38 @@ fn get_decoding_key() -> Result<&'static DecodingKey, AppError> {
     }
 
     let config = AppConfig::get();
-    let key_pem = fs::read_to_string(&config.public_key_path).map_err(|e| {
-        tracing::error!("Failed to read public key at '{}': {}", config.public_key_path, e);
-        AppError::InternalServerError(format!("Failed to read public key: {}", e))
-    })?;
+
+    // 1. Try from JWT_PUBLIC_KEY env variable
+    let key_pem = if let Some(raw_pem) = &config.jwt_public_key {
+        raw_pem.clone()
+    } else {
+        // 2. Try from file path
+        let path = Path::new(&config.public_key_path);
+        if path.exists() {
+            fs::read_to_string(path).map_err(|e| {
+                tracing::error!("Failed to read public key at '{}': {}", config.public_key_path, e);
+                AppError::InternalServerError(format!("Failed to read public key: {}", e))
+            })?
+        } else {
+            // 3. Fallback to example file if in development
+            let example_path = Path::new("config/keys/public.pem.example");
+            if example_path.exists() {
+                tracing::warn!(
+                    "Public key not found at '{}', falling back to '{}'",
+                    config.public_key_path,
+                    example_path.display()
+                );
+                fs::read_to_string(example_path).map_err(|e| {
+                    AppError::InternalServerError(format!("Failed to read example public key: {}", e))
+                })?
+            } else {
+                return Err(AppError::InternalServerError(format!(
+                    "Public key file not found at '{}'",
+                    config.public_key_path
+                )));
+            }
+        }
+    };
 
     let decoding_key = DecodingKey::from_rsa_pem(key_pem.as_bytes()).map_err(|e| {
         tracing::error!("Failed to parse RSA public key: {}", e);
@@ -87,14 +116,13 @@ pub fn verify_jwt(token: &str) -> Result<AuthUser, AppError> {
     let mut validation = Validation::new(Algorithm::RS256);
     validation.set_issuer(&["unified_login"]);
     validation.set_required_spec_claims(&["exp"]);
-    validation.validate_aud = false; // We validate aud manually below to support single string or array
+    validation.validate_aud = false;
 
     let token_data = decode::<Claims>(token, key, &validation)
         .map_err(|e| AppError::Unauthorized(e.to_string()))?;
 
     let claims = token_data.claims;
 
-    // Validate audience: must contain "hrm-api" or "crm-api"
     let valid_aud = match &claims.aud {
         Some(serde_json::Value::String(s)) => s == "hrm-api" || s == "crm-api",
         Some(serde_json::Value::Array(arr)) => arr.iter().any(|v| {
@@ -111,7 +139,6 @@ pub fn verify_jwt(token: &str) -> Result<AuthUser, AppError> {
         return Err(AppError::Unauthorized("Invalid audience".to_string()));
     }
 
-    // Validate tenant_id
     let tenant_id_str = claims.tenant_id.as_deref().unwrap_or("");
     if tenant_id_str.is_empty() || tenant_id_str == "missing" {
         return Err(AppError::Unauthorized("Missing tenant context in token".to_string()));

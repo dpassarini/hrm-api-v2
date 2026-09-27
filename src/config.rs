@@ -9,6 +9,7 @@ pub struct AppConfig {
     pub gemini_api_key: Option<String>,
     pub deepseek_api_key: Option<String>,
     pub public_key_path: String,
+    pub jwt_public_key: Option<String>,
     pub storage_dir: String,
 }
 
@@ -36,6 +37,8 @@ impl AppConfig {
             let public_key_path = std::env::var("PUBLIC_KEY_PATH")
                 .unwrap_or_else(|_| "config/keys/public.pem".to_string());
 
+            let jwt_public_key = std::env::var("JWT_PUBLIC_KEY").ok().filter(|s| !s.trim().is_empty());
+
             let storage_dir = std::env::var("STORAGE_DIR")
                 .unwrap_or_else(|_| "storage".to_string());
 
@@ -47,6 +50,7 @@ impl AppConfig {
                 gemini_api_key,
                 deepseek_api_key,
                 public_key_path,
+                jwt_public_key,
                 storage_dir,
             }
         })

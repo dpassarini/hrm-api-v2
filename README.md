@@ -10,7 +10,7 @@ Segunda versão da API do HRM (Human Relationship Manager), reescrita em Rust ut
 - Web Framework: Axum 0.7
 - Async Runtime: Tokio
 - Banco de Dados: PostgreSQL com SQLx
-- Autenticação: JWT RS256 com verificação de chave pública RSA (config/keys/public.pem) integrada ao unified_login
+- Autenticação: JWT RS256 com verificação de chave pública RSA (lida de arquivo ou variável de ambiente) integrada ao unified_login
 - Serialização/JSON: Serde / Serde JSON
 - Inteligência Artificial (Smart Input):
   - DeepSeek Chat e Vision (deepseek-v4-flash-vision-exp / deepseek-chat)
@@ -24,7 +24,7 @@ Segunda versão da API do HRM (Human Relationship Manager), reescrita em Rust ut
 hrm-api-v2/
 ├── config/
 │   └── keys/
-│       └── public.pem         # Chave pública RSA para validação dos tokens JWT
+│       └── public.pem.example # Template de chave pública RSA para validação JWT
 ├── src/
 │   ├── auth.rs                # Validação de JWT RS256, extração de AuthUser e tenant_id
 │   ├── config.rs              # Leitura de variáveis de ambiente com valores padrão
@@ -64,7 +64,7 @@ hrm-api-v2/
 │           ├── deepseek.rs
 │           ├── extractor.rs
 │           └── gemini.rs
-├── .env                       # Variáveis de ambiente locais
+├── .env                       # Variáveis de ambiente locais (ignorado no git)
 ├── .env.example               # Template de variáveis de ambiente
 ├── Cargo.toml
 ├── LICENSE                    # Licença AGPLv3
@@ -80,18 +80,14 @@ hrm-api-v2/
 - PostgreSQL em execução (ex: container Docker na porta 5432)
 
 ### 2. Configurar Variáveis de Ambiente
-O arquivo `.env` já vem configurado por padrão:
-```env
-DATABASE_URL=postgres://development:development@localhost:5432/hrm_development
-PORT=3000
-HOST=0.0.0.0
-UNIFIED_LOGIN_URL=http://localhost:3001
-GEMINI_API_KEY=
-DEEPSEEK_API_KEY=
-PUBLIC_KEY_PATH=config/keys/public.pem
-STORAGE_DIR=../hrm-api/storage
-RUST_LOG=info,hrm_api_v2=debug
+Copie o template de ambiente:
+```bash
+cp .env.example .env
 ```
+
+Para a chave pública RSA do JWT, você pode:
+- Copiar o template: `cp config/keys/public.pem.example config/keys/public.pem`
+- Ou definir diretamente na variável `JWT_PUBLIC_KEY="-----BEGIN PUBLIC KEY...\n-----END PUBLIC KEY-----"`
 
 ### 3. Rodar a Aplicação
 ```bash
