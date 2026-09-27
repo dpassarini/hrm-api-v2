@@ -1,0 +1,18 @@
+# Rust build target
+/target/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Local storage and uploaded files
+/storage/
+/tmp/
+
+# Logs
+*.log
+
+# Sensitive keys and certificates
+/config/keys/private.pem
+/config/keys/*.key
