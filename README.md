@@ -67,6 +67,7 @@ hrm-api-v2/
 ├── .env                       # Variáveis de ambiente locais
 ├── .env.example               # Template de variáveis de ambiente
 ├── Cargo.toml
+├── LICENSE                    # Licença AGPLv3
 └── README.md
 ```
 
@@ -142,3 +143,9 @@ cargo run
 | GET | /expenses/:id/receipt | Visualização/Download do comprovante da despesa |
 | POST | /smart_input/analyze | Análise por IA (OCR e extração estruturada de áudio, texto ou imagem) |
 | POST | /smart_input/commit | Persistência transacional em lote das entidades extraídas pelo Smart Input |
+
+---
+
+## Licença
+
+Este projeto está licenciado sob os termos da licença GNU Affero General Public License v3.0 (AGPL-3.0). Consulte o arquivo [LICENSE](LICENSE) para mais detalhes.
