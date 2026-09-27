@@ -12,20 +12,42 @@ use uuid::Uuid;
 
 use crate::{config::AppConfig, error::AppError};
 
-static DECODING_KEY: OnceLock<DecodingKey> = OnceLock::new();
+use std::sync::RwLock;
 
-fn get_decoding_key() -> Result<&'static DecodingKey, AppError> {
-    if let Some(key) = DECODING_KEY.get() {
-        return Ok(key);
+static CUSTOM_DECODING_KEY: RwLock<Option<DecodingKey>> = RwLock::new(None);
+static CACHED_DECODING_KEY: OnceLock<DecodingKey> = OnceLock::new();
+
+pub fn set_custom_decoding_key(key: DecodingKey) {
+    if let Ok(mut lock) = CUSTOM_DECODING_KEY.write() {
+        *lock = Some(key);
+    }
+}
+
+pub fn get_decoding_key() -> Result<DecodingKey, AppError> {
+    if let Ok(lock) = CUSTOM_DECODING_KEY.read() {
+        if let Some(key) = lock.as_ref() {
+            return Ok(key.clone());
+        }
+    }
+
+    if let Ok(raw_pem) = std::env::var("JWT_PUBLIC_KEY") {
+        if !raw_pem.trim().is_empty() {
+            return DecodingKey::from_rsa_pem(raw_pem.as_bytes()).map_err(|e| {
+                tracing::error!("Failed to parse RSA public key from JWT_PUBLIC_KEY: {}", e);
+                AppError::InternalServerError(format!("Failed to parse RSA public key: {}", e))
+            });
+        }
+    }
+
+    if let Some(key) = CACHED_DECODING_KEY.get() {
+        return Ok(key.clone());
     }
 
     let config = AppConfig::get();
 
-    // 1. Try from JWT_PUBLIC_KEY env variable
     let key_pem = if let Some(raw_pem) = &config.jwt_public_key {
         raw_pem.clone()
     } else {
-        // 2. Try from file path
         let path = Path::new(&config.public_key_path);
         if path.exists() {
             fs::read_to_string(path).map_err(|e| {
@@ -33,7 +55,6 @@ fn get_decoding_key() -> Result<&'static DecodingKey, AppError> {
                 AppError::InternalServerError(format!("Failed to read public key: {}", e))
             })?
         } else {
-            // 3. Fallback to example file if in development
             let example_path = Path::new("config/keys/public.pem.example");
             if example_path.exists() {
                 tracing::warn!(
@@ -58,11 +79,12 @@ fn get_decoding_key() -> Result<&'static DecodingKey, AppError> {
         AppError::InternalServerError(format!("Failed to parse RSA public key: {}", e))
     })?;
 
-    let _ = DECODING_KEY.set(decoding_key);
-    Ok(DECODING_KEY.get().unwrap())
+    let _ = CACHED_DECODING_KEY.set(decoding_key.clone());
+    Ok(decoding_key)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String,
     pub tenant_id: Option<String>,
@@ -118,8 +140,9 @@ pub fn verify_jwt(token: &str) -> Result<AuthUser, AppError> {
     validation.set_required_spec_claims(&["exp"]);
     validation.validate_aud = false;
 
-    let token_data = decode::<Claims>(token, key, &validation)
+    let token_data = decode::<Claims>(token, &key, &validation)
         .map_err(|e| AppError::Unauthorized(e.to_string()))?;
+
 
     let claims = token_data.claims;
 

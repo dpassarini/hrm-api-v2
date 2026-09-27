@@ -21,7 +21,7 @@ impl LeadsFileProcessor {
         });
     }
 
-    async fn do_process_file(
+    pub async fn do_process_file(
         pool: &PgPool,
         leads_file_id: Uuid,
         tenant_id: Uuid,

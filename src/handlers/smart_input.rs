@@ -1,5 +1,5 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
 
@@ -9,14 +9,14 @@ use crate::{
     services::smart_input::{builder::EntityBuilderService, extractor::ExtractorService},
 };
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AnalyzeRequest {
     pub text: Option<String>,
     pub image: Option<Value>,
     pub provider: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CommitRequest {
     pub payload: Option<Value>,
 }

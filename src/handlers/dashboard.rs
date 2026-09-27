@@ -194,7 +194,7 @@ pub async fn get_dashboard_stats(
         SELECT TO_CHAR(date, 'YYYY-MM') as ym, SUM(amount) as amt
         FROM expenses
         WHERE tenant_id = $1 AND date >= $2
-        GROUP BY ym
+        GROUP BY 1
         "#,
     )
     .bind(tenant_id)
@@ -245,7 +245,7 @@ pub async fn get_dashboard_stats(
         r#"
         SELECT a.id, a.title, a.due_date, p.name as project_name
         FROM activities a
-        JOIN projects p ON p.id = a.project_id
+        LEFT JOIN projects p ON p.id = a.project_id
         WHERE a.tenant_id = $1 AND a.status = 'pending'
         ORDER BY a.due_date ASC NULLS LAST
         LIMIT 5
@@ -277,11 +277,12 @@ pub async fn get_dashboard_stats(
         FROM companies comp
         JOIN contacts c ON c.company_id = comp.id
         WHERE comp.tenant_id = $1
-        GROUP BY comp.name
+        GROUP BY comp.id, comp.name
         ORDER BY cnt DESC
         LIMIT 5
         "#,
     )
+
     .bind(tenant_id)
     .fetch_all(&pool)
     .await
